@@ -1,12 +1,12 @@
-[start]
-cmd = "cd backend && python app.py"
-
 [phases.setup]
 nixPkgs = ["python311", "gcc"]
 
 [phases.install]
 dependsOn = ["setup"]
-cmds = ["cd backend && pip install -r requirements.txt"]
+cmds = ["pip install -r backend/requirements.txt"]
+
+[start]
+cmd = "python run.py"
 
 [variables]
 PORT = "5000"
