@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "discord-bot/Dockerfile"
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE" 

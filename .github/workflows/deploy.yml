@@ -1,0 +1,59 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install Node dependencies
+      run: |
+        cd discord-bot
+        npm ci
+    
+    - name: Test backend
+      run: |
+        cd backend
+        python -c "import app; print('Backend imports successfully')"
+    
+    - name: Test Discord bot
+      run: |
+        cd discord-bot
+        node -c "require('./bot.js'); console.log('Bot loads successfully')"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Railway
+      uses: railway-app/cli@v3
+      with:
+        command: up
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }} 

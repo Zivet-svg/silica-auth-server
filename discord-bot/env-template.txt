@@ -1,0 +1,11 @@
+DISCORD_TOKEN=MTM4NzIwODA1MzUxODIzNzc1OQ.GogeKW.iF47KoaFVcJeDLDXD4RxhefW_XkmjI8qgg3gI4
+BACKEND_URL=http://localhost:5000
+ADMIN_KEY=rAwwIzAd-RGz8eYGo_6ymz8Wd4EFEnBC6R--MWQ8gK8
+
+# Role Configuration (paste your role IDs here)
+ALLOWED_ROLE_ID=
+ADMIN_ROLE_ID=1387234302722314261
+
+# Server and Channel Security (paste your IDs here)
+AUTHORIZED_SERVER_ID=
+ALLOWED_CHANNELS= 
