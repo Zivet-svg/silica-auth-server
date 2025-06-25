@@ -344,12 +344,23 @@ def list_users():
     except Exception as e:
         return jsonify({'error': f'Failed to list users: {str(e)}'}), 500
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint"""
+    return jsonify({
+        'service': 'Silica Client Authentication Server',
+        'status': 'running',
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    print("🏥 Health check endpoint accessed")
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'service': 'Silica Auth Server'
     }), 200
 
 @app.route('/auth/check-discord', methods=['GET'])
@@ -707,7 +718,9 @@ def validate_token():
 
 if __name__ == '__main__':
     init_db()
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
     print("🚀 Starting Silica Auth Backend...")
-    print(f"📡 Server will be available at: http://162.234.162.63:5000")
+    print(f"📡 Server running on: {host}:{port}")
     print(f"🔑 Admin Key: {ADMIN_KEY}")
-    app.run(host='0.0.0.0', port=5000, debug=False) 
+    app.run(host=host, port=port, debug=False) 
