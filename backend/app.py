@@ -37,15 +37,22 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP,
             last_login TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1
+            is_active BOOLEAN DEFAULT 1,
+            discord_id TEXT,
+            note TEXT
         )
     ''')
     
-    # Ensure new column exists when upgrading from older schema
+    # Ensure new columns exist when upgrading from older schema
     cursor.execute("PRAGMA table_info(users)")
     existing_cols = [row[1] for row in cursor.fetchall()]
+    
     if 'expires_at' not in existing_cols:
         cursor.execute('ALTER TABLE users ADD COLUMN expires_at TIMESTAMP')
+    if 'discord_id' not in existing_cols:
+        cursor.execute('ALTER TABLE users ADD COLUMN discord_id TEXT')
+    if 'note' not in existing_cols:
+        cursor.execute('ALTER TABLE users ADD COLUMN note TEXT')
     
     conn.commit()
     conn.close()
@@ -356,12 +363,20 @@ def root():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    print("🏥 Health check endpoint accessed")
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'service': 'Silica Auth Server'
-    }), 200
+    try:
+        print("🏥 Health check endpoint accessed")
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'service': 'Silica Auth Server',
+            'version': '1.0.0'
+        }), 200
+    except Exception as e:
+        print(f"❌ Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 @app.route('/auth/check-discord', methods=['GET'])
 def check_discord():
@@ -716,11 +731,20 @@ def validate_token():
     except Exception as e:
         return jsonify({'error': f'Validation failed: {str(e)}'}), 500
 
-if __name__ == '__main__':
+# Initialize database when module is imported
+print("🔧 Initializing database...")
+try:
     init_db()
+    print("✅ Database initialized successfully")
+except Exception as e:
+    print(f"❌ Database initialization failed: {str(e)}")
+    raise
+
+if __name__ == '__main__':
+    # This is only for local development
     port = int(os.environ.get('PORT', 5000))
     host = os.environ.get('HOST', '0.0.0.0')
-    print("🚀 Starting Silica Auth Backend...")
+    print("🚀 Starting Silica Auth Backend (Development Mode)...")
     print(f"📡 Server running on: {host}:{port}")
     print(f"🔑 Admin Key: {ADMIN_KEY}")
-    app.run(host=host, port=port, debug=False) 
+    app.run(host=host, port=port, debug=True) 
