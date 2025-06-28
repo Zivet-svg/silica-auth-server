@@ -119,26 +119,15 @@ async function sendRegistrationDM(user, email, password, totp_secret, qr_code, i
 // Webhook endpoint for website purchases
 app.post('/webhook/register', async (req, res) => {
     try {
-        const { discord_username, email, password, totp_secret, qr_code, product_type, is_active, duration_days } = req.body;
-        if (!discord_username || !email || !password) {
+        const { discord_user_id, email, password, totp_secret, qr_code, product_type, is_active, duration_days } = req.body;
+        if (!discord_user_id || !email || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        // Find user by Discord username in all guilds
         let targetUser = null;
-        for (const guild of client.guilds.cache.values()) {
-            const members = await guild.members.fetch();
-            const member = members.find(m =>
-                m.user.username.toLowerCase() === discord_username.toLowerCase() ||
-                m.displayName.toLowerCase() === discord_username.toLowerCase() ||
-                m.user.tag.toLowerCase() === discord_username.toLowerCase()
-            );
-            if (member) {
-                targetUser = member.user;
-                break;
-            }
-        }
-        if (!targetUser) {
-            console.log(`❌ Could not find Discord user: ${discord_username}`);
+        try {
+            targetUser = await client.users.fetch(discord_user_id);
+        } catch (e) {
+            console.log(`❌ Could not fetch Discord user by ID: ${discord_user_id}`);
             return res.status(404).json({ error: 'Discord user not found' });
         }
         const dmSuccess = await sendRegistrationDM(targetUser, email, password, totp_secret, qr_code, is_active, duration_days);
