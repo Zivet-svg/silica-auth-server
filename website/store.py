@@ -19,8 +19,8 @@ CORS(app, resources={
     r"/*": {
         "origins": [
             "https://silicaclient.store",
-            "http://localhost:3000",
-            "http://localhost:5000"
+            "http://localhost:3001",
+            "http://localhost:5001"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "X-Admin-Key", "Authorization"]

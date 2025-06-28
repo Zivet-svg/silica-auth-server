@@ -20,8 +20,8 @@ CORS(app, resources={
     r"/*": {
         "origins": [
             "https://silicaclient.store",
-            "http://localhost:3000",
-            "http://localhost:5000"
+            "http://localhost:3001",
+            "http://localhost:5001"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "X-Admin-Key", "Authorization"]
@@ -868,7 +868,7 @@ except Exception as e:
 
 if __name__ == '__main__':
     # This is only for local development
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     host = os.environ.get('HOST', '0.0.0.0')
     print("🚀 Starting Silica Auth Backend (Development Mode)...")
     print(f"📡 Server running on: {host}:{port}")
