@@ -4,7 +4,7 @@ require('dotenv').config();
 
 // Configuration
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://67.205.158.33:5000';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'rAwwIzAd-RGz8eYGo_6ymz8Wd4EFEnBC6R--MWQ8gK8';
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID; // Optional: Discord role ID for admins
 const PREFIX = '!';

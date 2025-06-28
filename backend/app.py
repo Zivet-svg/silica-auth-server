@@ -98,6 +98,10 @@ def register():
             return jsonify({'error': 'Email is required'}), 400
         
         email = data['email'].lower().strip()
+        discord_id = data.get('discord_id')
+        discord_username = data.get('discord_username')
+        is_active = data.get('is_active', False)
+        duration_days = data.get('duration_days', 0)
         
         # Generate random password
         password = secrets.token_urlsafe(12)
@@ -126,11 +130,16 @@ def register():
             conn.close()
             return jsonify({'error': 'Email already registered'}), 400
         
-        # Insert new user with inactive status
+        # Calculate expiration if duration is provided
+        expires_at = None
+        if is_active and duration_days > 0:
+            expires_at = datetime.now() + timedelta(days=duration_days)
+        
+        # Insert new user
         cursor.execute('''
-            INSERT INTO users (email, password_hash, totp_secret, is_active)
-            VALUES (?, ?, ?, 0)
-        ''', (email, password_hash, totp_secret))
+            INSERT INTO users (email, password_hash, totp_secret, is_active, discord_id, expires_at, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (email, password_hash, totp_secret, is_active, discord_id, expires_at, discord_username))
         
         conn.commit()
         conn.close()
@@ -364,13 +373,13 @@ def root():
 def health_check():
     """Health check endpoint"""
     try:
-        print("🏥 Health check endpoint accessed")
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
+    print("🏥 Health check endpoint accessed")
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
             'service': 'Silica Auth Server',
             'version': '1.0.0'
-        }), 200
+    }), 200
     except Exception as e:
         print(f"❌ Health check failed: {str(e)}")
         return jsonify({
@@ -730,6 +739,95 @@ def validate_token():
         
     except Exception as e:
         return jsonify({'error': f'Validation failed: {str(e)}'}), 500
+
+
+
+@app.route('/auth/trigger-discord-register', methods=['POST'])
+def trigger_discord_register():
+    """Simulate a Discord !register command from website purchase"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'email' not in data or 'discord_username' not in data:
+            return jsonify({'error': 'Email and discord_username are required'}), 400
+        
+        email = data['email'].lower().strip()
+        discord_username = data['discord_username']
+        product_type = data.get('product_type', 'monthly')
+        payment_method = data.get('payment_method', 'unknown')
+        payment_proof = data.get('payment_proof', '')
+        discount_info = data.get('discount_info')
+        final_price = data.get('final_price')
+        
+        # Calculate duration based on product type
+        duration_days = 30 if product_type == 'monthly' else 1000
+        
+        # Generate random password (same as Discord bot does)
+        password = secrets.token_urlsafe(12)
+        password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+        
+        # Generate TOTP secret (same as Discord bot does)
+        totp_secret = pyotp.random_base32()
+        totp = pyotp.TOTP(totp_secret)
+        
+        # Generate QR code (same as Discord bot does)
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(totp.provisioning_uri(email, issuer_name="Silica Client"))
+        qr.make(fit=True)
+        
+        # Create QR code image
+        img_buffer = io.BytesIO()
+        qr.make_image(fill_color="black", back_color="white").save(img_buffer, format='PNG')
+        qr_code = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+        
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        
+        # Check if email already exists
+        cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'error': 'Email already registered'}), 400
+        
+        # Create note with purchase info
+        note_parts = [f"Discord: {discord_username}"]
+        if payment_method:
+            note_parts.append(f"Payment: {payment_method}")
+        if payment_proof:
+            note_parts.append(f"Proof: {payment_proof}")
+        if discount_info:
+            note_parts.append(f"Discount: {discount_info['code']} (${discount_info['savings']:.2f} off)")
+        if final_price:
+            note_parts.append(f"Price: ${final_price:.2f}")
+        
+        note = " | ".join(note_parts)
+        
+        # Insert new user with INACTIVE status (same as Discord !register)
+        # Admin will need to activate after verifying payment
+        cursor.execute('''
+            INSERT INTO users (email, password_hash, totp_secret, is_active, discord_id, note)
+            VALUES (?, ?, ?, 0, NULL, ?)
+        ''', (email, password_hash, totp_secret, note))
+        
+        conn.commit()
+        conn.close()
+        
+        # Return data that tells Discord bot to send DM (same format as !register)
+        return jsonify({
+            'success': True,
+            'message': 'Registration request submitted. Check Discord DMs for credentials.',
+            'discord_action': 'send_register_dm',
+            'discord_username': discord_username,
+            'email': email,
+            'password': password,
+            'totp_secret': totp_secret,
+            'qr_code': qr_code,
+            'product_type': product_type,
+            'duration_days': duration_days
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
 
 # Initialize database when module is imported
 print("🔧 Initializing database...")

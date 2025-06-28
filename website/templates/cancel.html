@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Cancelled - Silica Client</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-cube"></i> Silica Client
+            </a>
+        </div>
+    </nav>
+
+    <!-- Cancel Content -->
+    <section class="py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 text-center">
+                    <div class="result-icon error">
+                        <i class="fas fa-times fa-3x"></i>
+                    </div>
+                    
+                    <h1 class="mb-4">Payment Cancelled</h1>
+                    <p class="lead mb-4">Your payment was cancelled and no charges were made.</p>
+                    
+                    <div class="alert alert-info">
+                        <p class="mb-0">If you experienced any issues during checkout, please contact our support team on Discord.</p>
+                    </div>
+                    
+                    <div class="mt-5">
+                        <a href="/purchase" class="btn btn-primary me-2">Try Again</a>
+                        <a href="/" class="btn btn-outline-secondary">Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+</html> 
