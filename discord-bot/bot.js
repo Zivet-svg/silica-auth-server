@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const axios = require('axios');
+const express = require('express');
 require('dotenv').config();
 
 // Configuration
@@ -8,6 +9,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://67.205.158.33:5000';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'rAwwIzAd-RGz8eYGo_6ymz8Wd4EFEnBC6R--MWQ8gK8';
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID; // Optional: Discord role ID for admins
 const PREFIX = '!';
+const WEBHOOK_PORT = process.env.WEBHOOK_PORT || 3001;
 
 // Initialize Discord client
 const client = new Client({
@@ -19,6 +21,10 @@ const client = new Client({
         GatewayIntentBits.DirectMessageReactions
     ]
 });
+
+// Initialize Express server for webhooks
+const app = express();
+app.use(express.json());
 
 // Helper function to check if user is admin
 function isAdmin(member) {
@@ -79,9 +85,84 @@ function createInfoEmbed(title, message) {
         .setTimestamp();
 }
 
+// Webhook endpoint for website purchases
+app.post('/webhook/register', async (req, res) => {
+    try {
+        const { discord_username, email, password, totp_secret, qr_code, product_type } = req.body;
+        
+        if (!discord_username || !email || !password) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        // Find user by Discord username in all guilds
+        let targetUser = null;
+        for (const guild of client.guilds.cache.values()) {
+            const members = await guild.members.fetch();
+            const member = members.find(m => 
+                m.user.username.toLowerCase() === discord_username.toLowerCase() ||
+                m.displayName.toLowerCase() === discord_username.toLowerCase() ||
+                m.user.tag.toLowerCase() === discord_username.toLowerCase()
+            );
+            
+            if (member) {
+                targetUser = member.user;
+                break;
+            }
+        }
+        
+        if (!targetUser) {
+            console.log(`❌ Could not find Discord user: ${discord_username}`);
+            return res.status(404).json({ error: 'Discord user not found' });
+        }
+        
+        // Send the same DM as !register command
+        try {
+            const dm = await targetUser.createDM();
+            await dm.send({
+                embeds: [createSuccessEmbed(
+                    '🔐 Your Silica Client Login Credentials',
+                    `**Purchase Confirmed!** Your account has been created.\n\nEmail: **${email}**\nPassword: **${password}**\n\n**Important Notes:**\n• Your account is currently inactive\n• An admin must approve and set duration\n• You'll receive another DM when activated\n\nScan this QR code with Google Authenticator:`
+                )]
+            });
+            
+            // Send QR code
+            await dm.send({
+                files: [{
+                    attachment: Buffer.from(qr_code.split(',')[1], 'base64'),
+                    name: 'qr-code.png'
+                }]
+            });
+            
+            await dm.send({
+                embeds: [createInfoEmbed(
+                    '📱 2FA Setup Instructions',
+                    '1. Install Google Authenticator\n2. Scan the QR code above\n3. Keep your 2FA secret safe\n\n**Backup Code:** `' + totp_secret + '`'
+                )]
+            });
+            
+            console.log(`✅ Registration DM sent to: ${targetUser.tag} (${discord_username})`);
+            res.json({ success: true, message: 'DM sent successfully' });
+            
+        } catch (dmError) {
+            console.error('DM error:', dmError);
+            res.status(500).json({ error: 'Could not send DM. User may have DMs disabled.' });
+        }
+        
+    } catch (error) {
+        console.error('Webhook error:', error);
+        res.status(500).json({ error: 'Webhook processing failed' });
+    }
+});
+
+// Start webhook server
+app.listen(WEBHOOK_PORT, () => {
+    console.log(`🌐 Webhook server listening on port ${WEBHOOK_PORT}`);
+});
+
 client.once('ready', () => {
     console.log(`🤖 Bot is ready! Logged in as ${client.user.tag}`);
     console.log(`📡 Backend URL: ${BACKEND_URL}`);
+    console.log(`🔗 Webhook URL: http://localhost:${WEBHOOK_PORT}/webhook/register`);
     
     // Set bot status
     client.user.setActivity('Silica Client Auth', { type: 'WATCHING' });

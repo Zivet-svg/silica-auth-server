@@ -11,6 +11,7 @@ import secrets
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -812,19 +813,38 @@ def trigger_discord_register():
         conn.commit()
         conn.close()
         
-        # Return data that tells Discord bot to send DM (same format as !register)
-        return jsonify({
-            'success': True,
-            'message': 'Registration request submitted. Check Discord DMs for credentials.',
-            'discord_action': 'send_register_dm',
-            'discord_username': discord_username,
-            'email': email,
-            'password': password,
-            'totp_secret': totp_secret,
-            'qr_code': qr_code,
-            'product_type': product_type,
-            'duration_days': duration_days
-        }), 200
+        # Call Discord bot webhook to send DM
+        try:
+            webhook_response = requests.post('http://localhost:3001/webhook/register', json={
+                'discord_username': discord_username,
+                'email': email,
+                'password': password,
+                'totp_secret': totp_secret,
+                'qr_code': qr_code,
+                'product_type': product_type
+            }, timeout=10)
+            
+            if webhook_response.status_code == 200:
+                return jsonify({
+                    'success': True,
+                    'message': 'Registration complete! Check your Discord DMs for login credentials.',
+                    'status': 'dm_sent'
+                }), 200
+            else:
+                return jsonify({
+                    'success': True,
+                    'message': 'Account created but could not send Discord DM. Contact admin for credentials.',
+                    'status': 'dm_failed',
+                    'discord_error': webhook_response.text
+                }), 200
+                
+        except requests.exceptions.RequestException as webhook_error:
+            return jsonify({
+                'success': True,
+                'message': 'Account created but Discord bot is offline. Contact admin for credentials.',
+                'status': 'bot_offline',
+                'webhook_error': str(webhook_error)
+            }), 200
         
     except Exception as e:
         return jsonify({'error': f'Registration failed: {str(e)}'}), 500
