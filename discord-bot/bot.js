@@ -85,69 +85,68 @@ function createInfoEmbed(title, message) {
         .setTimestamp();
 }
 
+// Unified DM sending function
+async function sendRegistrationDM(user, email, password, totp_secret, qr_code, is_active = false, duration_days = 0) {
+    try {
+        const dm = await user.createDM();
+        await dm.send({
+            embeds: [createSuccessEmbed(
+                '🔐 Your Silica Client Login Credentials',
+                `**Purchase Confirmed!** Your account has been created.\n\nEmail: **${email}**\nPassword: **${password}**\n\n**Important Notes:**\n• Your account is currently ${is_active ? 'active' : 'inactive'}\n• An admin must approve and set duration\n• You\'ll receive another DM when activated\n\nScan this QR code with Google Authenticator:`
+            )]
+        });
+        // Send QR code
+        await dm.send({
+            files: [{
+                attachment: Buffer.from(qr_code.split(',')[1], 'base64'),
+                name: 'qr-code.png'
+            }]
+        });
+        await dm.send({
+            embeds: [createInfoEmbed(
+                '📱 2FA Setup Instructions',
+                '1. Install Google Authenticator\n2. Scan the QR code above\n3. Keep your 2FA secret safe\n\n**Backup Code:** `' + totp_secret + '`'
+            )]
+        });
+        console.log(`✅ Registration DM sent to: ${user.tag}`);
+        return true;
+    } catch (dmError) {
+        console.error('DM error:', dmError);
+        return false;
+    }
+}
+
 // Webhook endpoint for website purchases
 app.post('/webhook/register', async (req, res) => {
     try {
-        const { discord_username, email, password, totp_secret, qr_code, product_type } = req.body;
-        
+        const { discord_username, email, password, totp_secret, qr_code, product_type, is_active, duration_days } = req.body;
         if (!discord_username || !email || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        
         // Find user by Discord username in all guilds
         let targetUser = null;
         for (const guild of client.guilds.cache.values()) {
             const members = await guild.members.fetch();
-            const member = members.find(m => 
+            const member = members.find(m =>
                 m.user.username.toLowerCase() === discord_username.toLowerCase() ||
                 m.displayName.toLowerCase() === discord_username.toLowerCase() ||
                 m.user.tag.toLowerCase() === discord_username.toLowerCase()
             );
-            
             if (member) {
                 targetUser = member.user;
                 break;
             }
         }
-        
         if (!targetUser) {
             console.log(`❌ Could not find Discord user: ${discord_username}`);
             return res.status(404).json({ error: 'Discord user not found' });
         }
-        
-        // Send the same DM as !register command
-        try {
-            const dm = await targetUser.createDM();
-            await dm.send({
-                embeds: [createSuccessEmbed(
-                    '🔐 Your Silica Client Login Credentials',
-                    `**Purchase Confirmed!** Your account has been created.\n\nEmail: **${email}**\nPassword: **${password}**\n\n**Important Notes:**\n• Your account is currently inactive\n• An admin must approve and set duration\n• You'll receive another DM when activated\n\nScan this QR code with Google Authenticator:`
-                )]
-            });
-            
-            // Send QR code
-            await dm.send({
-                files: [{
-                    attachment: Buffer.from(qr_code.split(',')[1], 'base64'),
-                    name: 'qr-code.png'
-                }]
-            });
-            
-            await dm.send({
-                embeds: [createInfoEmbed(
-                    '📱 2FA Setup Instructions',
-                    '1. Install Google Authenticator\n2. Scan the QR code above\n3. Keep your 2FA secret safe\n\n**Backup Code:** `' + totp_secret + '`'
-                )]
-            });
-            
-            console.log(`✅ Registration DM sent to: ${targetUser.tag} (${discord_username})`);
+        const dmSuccess = await sendRegistrationDM(targetUser, email, password, totp_secret, qr_code, is_active, duration_days);
+        if (dmSuccess) {
             res.json({ success: true, message: 'DM sent successfully' });
-            
-        } catch (dmError) {
-            console.error('DM error:', dmError);
+        } else {
             res.status(500).json({ error: 'Could not send DM. User may have DMs disabled.' });
         }
-        
     } catch (error) {
         console.error('Webhook error:', error);
         res.status(500).json({ error: 'Webhook processing failed' });
@@ -309,37 +308,7 @@ async function handleRegister(message, args) {
             });
 
             // Send credentials via DM
-            try {
-                const dm = await message.author.createDM();
-                await dm.send({
-                    embeds: [createSuccessEmbed(
-                        '🔐 Your Login Credentials',
-                        `Email: **${email}**\nPassword: **${registerResponse.data.password}**\n\n**Important Notes:**\n• Your account is currently inactive\n• An admin must approve and set duration\n• You'll receive a DM when activated\n\nScan this QR code with Google Authenticator:`
-                    )]
-                });
-                
-                // Send QR code
-                await dm.send({
-                    files: [{
-                        attachment: Buffer.from(registerResponse.data.qr_code.split(',')[1], 'base64'),
-                        name: 'qr-code.png'
-                    }]
-                });
-                
-                await dm.send({
-                    embeds: [createInfoEmbed(
-                        '📱 2FA Setup Instructions',
-                        '1. Install Google Authenticator\n2. Scan the QR code above\n3. Keep your 2FA secret safe\n\n**Backup Code:** `' + registerResponse.data.totp_secret + '`'
-                    )]
-                });
-                
-                console.log(`📧 Credentials sent to: ${message.author.tag}`);
-            } catch (dmError) {
-                console.error('DM error:', dmError);
-                await message.reply({
-                    embeds: [createErrorEmbed('❌ Could not send DM. Please enable DMs from server members.')]
-                });
-            }
+            await sendRegistrationDM(message.author, email, registerResponse.data.password, registerResponse.data.totp_secret, registerResponse.data.qr_code, false, 0);
         }
     } catch (error) {
         console.error('Registration error:', error);
