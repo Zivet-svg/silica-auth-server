@@ -374,19 +374,15 @@ def root():
 def health_check():
     """Health check endpoint"""
     try:
-    print("🏥 Health check endpoint accessed")
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
+        print("🏥 Health check endpoint accessed")
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
             'service': 'Silica Auth Server',
             'version': '1.0.0'
-    }), 200
+        }), 200
     except Exception as e:
-        print(f"❌ Health check failed: {str(e)}")
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/auth/check-discord', methods=['GET'])
 def check_discord():
@@ -741,19 +737,17 @@ def validate_token():
     except Exception as e:
         return jsonify({'error': f'Validation failed: {str(e)}'}), 500
 
-
-
 @app.route('/auth/trigger-discord-register', methods=['POST'])
 def trigger_discord_register():
     """Simulate a Discord !register command from website purchase"""
     try:
         data = request.get_json()
         
-        if not data or 'email' not in data or 'discord_username' not in data:
-            return jsonify({'error': 'Email and discord_username are required'}), 400
+        if not data or 'email' not in data or 'discord_user_id' not in data:
+            return jsonify({'error': 'Email and discord_user_id are required'}), 400
         
         email = data['email'].lower().strip()
-        discord_username = data['discord_username']
+        discord_user_id = data['discord_user_id']
         product_type = data.get('product_type', 'monthly')
         payment_method = data.get('payment_method', 'unknown')
         payment_proof = data.get('payment_proof', '')
@@ -791,7 +785,7 @@ def trigger_discord_register():
             return jsonify({'error': 'Email already registered'}), 400
         
         # Create note with purchase info
-        note_parts = [f"Discord: {discord_username}"]
+        note_parts = [f"DiscordID: {discord_user_id}"]
         if payment_method:
             note_parts.append(f"Payment: {payment_method}")
         if payment_proof:
@@ -807,8 +801,8 @@ def trigger_discord_register():
         # Admin will need to activate after verifying payment
         cursor.execute('''
             INSERT INTO users (email, password_hash, totp_secret, is_active, discord_id, note)
-            VALUES (?, ?, ?, 0, NULL, ?)
-        ''', (email, password_hash, totp_secret, note))
+            VALUES (?, ?, ?, 0, ?, ?)
+        ''', (email, password_hash, totp_secret, discord_user_id, note))
         
         conn.commit()
         conn.close()
@@ -816,12 +810,14 @@ def trigger_discord_register():
         # Call Discord bot webhook to send DM
         try:
             webhook_response = requests.post('http://localhost:3001/webhook/register', json={
-                'discord_username': discord_username,
+                'discord_user_id': discord_user_id,
                 'email': email,
                 'password': password,
                 'totp_secret': totp_secret,
                 'qr_code': qr_code,
-                'product_type': product_type
+                'product_type': product_type,
+                'is_active': False,
+                'duration_days': duration_days
             }, timeout=10)
             
             if webhook_response.status_code == 200:
