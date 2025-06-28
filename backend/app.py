@@ -14,19 +14,21 @@ from functools import wraps
 import requests
 
 app = Flask(__name__)
+CORS(
+    app,
+    supports_credentials=True,
+    origins="*",
+    allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials", "Access-Control-Allow-Origin"],
+    methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"]
+)
 
-# Configure CORS to allow requests from your domain
-CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "https://silicaclient.store",
-            "http://localhost:3001",
-            "http://localhost:5001"
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "X-Admin-Key", "Authorization"]
-    }
-})
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Access-Control-Allow-Credentials,Access-Control-Allow-Origin')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PUT,DELETE')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # Configuration
 SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
